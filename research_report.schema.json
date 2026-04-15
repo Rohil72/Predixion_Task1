@@ -1,0 +1,126 @@
+{
+  "type": "object",
+  "properties": {
+    "user_question": {
+      "type": "string"
+    },
+    "executive_summary": {
+      "type": "string"
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subsections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "title",
+                "content"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "title",
+          "content",
+          "subsections"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "key_findings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "confidence_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "limitations_or_assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "suggested_next_steps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sources_used": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "web",
+              "file",
+              "database",
+              "api"
+            ]
+          },
+          "used_for": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "url",
+          "source_type",
+          "used_for"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "user_question",
+    "executive_summary",
+    "sections",
+    "key_findings",
+    "confidence_level",
+    "limitations_or_assumptions",
+    "suggested_next_steps",
+    "sources_used"
+  ],
+  "additionalProperties": false
+}

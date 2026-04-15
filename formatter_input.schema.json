@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "user_question_hint": {
+      "type": "string"
+    },
+    "raw_model_output": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "raw_model_output"
+  ],
+  "additionalProperties": false
+}

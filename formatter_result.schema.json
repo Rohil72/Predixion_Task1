@@ -1,0 +1,47 @@
+{
+  "type": "object",
+  "properties": {
+    "report": {
+      "$ref": "./research_report.schema.json"
+    },
+    "diagnostics": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "fallback"
+          ]
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "validation_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fallback_reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "warnings",
+        "validation_errors",
+        "fallback_reason"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "report",
+    "diagnostics"
+  ],
+  "additionalProperties": false
+}
