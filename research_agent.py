@@ -3,10 +3,15 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional, List
 from urllib import error, request
+
+RETRIABLE_HTTP_CODES = {429, 500, 502, 503, 504}
+MAX_RETRIES = 3
+BASE_DELAY = 2  # seconds
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -93,6 +98,38 @@ def load_system_prompt() -> str:
     )
 
 
+def _request_with_retry(req_factory, timeout: int = 90, label: str = "API") -> Any:
+    """Execute an HTTP request with exponential-backoff retry on transient errors.
+
+    req_factory must be a callable returning a fresh urllib.request.Request each time
+    (because urllib consumes the body on the first attempt).
+    """
+    last_exc: Exception | None = None
+    for attempt in range(MAX_RETRIES + 1):
+        req = req_factory()
+        try:
+            with request.urlopen(req, timeout=timeout) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            if exc.code in RETRIABLE_HTTP_CODES and attempt < MAX_RETRIES:
+                delay = BASE_DELAY * (2 ** attempt)
+                print(f"[retry] {label} HTTP {exc.code}, retrying in {delay}s (attempt {attempt + 1}/{MAX_RETRIES})...", file=sys.stderr)
+                time.sleep(delay)
+                last_exc = exc
+                continue
+            raise SystemExit(f"{label} HTTP {exc.code}: {body}") from exc
+        except error.URLError as exc:
+            if attempt < MAX_RETRIES:
+                delay = BASE_DELAY * (2 ** attempt)
+                print(f"[retry] {label} connection error, retrying in {delay}s (attempt {attempt + 1}/{MAX_RETRIES})...", file=sys.stderr)
+                time.sleep(delay)
+                last_exc = exc
+                continue
+            raise SystemExit(f"{label} request failed: {exc}") from exc
+    raise SystemExit(f"{label} request failed after {MAX_RETRIES} retries") from last_exc
+
+
 def call_openrouter(messages: list[dict[str, str]]) -> str:
     api_key = os.getenv("OPENROUTER_API_KEY")
     model = os.getenv("OPENROUTER_RESEARCH_MODEL") or os.getenv(
@@ -103,33 +140,26 @@ def call_openrouter(messages: list[dict[str, str]]) -> str:
     if not api_key or api_key == "your_openrouter_api_key_here":
         raise SystemExit("Set OPENROUTER_API_KEY in .env before running the researcher.")
 
-    payload = {
+    payload = json.dumps({
         "model": model,
         "messages": messages,
         "temperature": 0.2,
-    }
+    }).encode("utf-8")
 
-    req = request.Request(
-        "https://openrouter.ai/api/v1/chat/completions",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost",
-            "X-Title": "Research Agent",
-        },
-        method="POST",
-    )
+    def make_request():
+        return request.Request(
+            "https://openrouter.ai/api/v1/chat/completions",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "http://localhost",
+                "X-Title": "Research Agent",
+            },
+            method="POST",
+        )
 
-    try:
-        with request.urlopen(req, timeout=90) as response:
-            result = json.loads(response.read().decode("utf-8"))
-    except error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        raise SystemExit(f"HTTP {exc.code}: {body}") from exc
-    except error.URLError as exc:
-        raise SystemExit(f"Request failed: {exc}") from exc
-
+    result = _request_with_retry(make_request, timeout=90, label="OpenRouter")
     return result["choices"][0]["message"]["content"].strip()
 
 
@@ -138,7 +168,7 @@ def call_tavily_search(query: str, topic: str) -> dict[str, Any]:
     if not api_key or api_key == "your_tavily_api_key_here":
         raise SystemExit("Set TAVILY_API_KEY in .env before running the researcher.")
 
-    payload = {
+    payload = json.dumps({
         "query": query,
         "topic": topic,
         "search_depth": "basic",
@@ -146,26 +176,20 @@ def call_tavily_search(query: str, topic: str) -> dict[str, Any]:
         "include_answer": False,
         "include_raw_content": False,
         "include_usage": False,
-    }
+    }).encode("utf-8")
 
-    req = request.Request(
-        "https://api.tavily.com/search",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
+    def make_request():
+        return request.Request(
+            "https://api.tavily.com/search",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
 
-    try:
-        with request.urlopen(req, timeout=60) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        raise SystemExit(f"Tavily HTTP {exc.code}: {body}") from exc
-    except error.URLError as exc:
-        raise SystemExit(f"Tavily request failed: {exc}") from exc
+    return _request_with_retry(make_request, timeout=60, label="Tavily")
 
 
 def detect_default_topic(question: str) -> str:

@@ -8,8 +8,8 @@ $pythonScript = Join-Path $scriptDir "call_llm.py"
 $researchAgentScript = Join-Path $scriptDir "research_agent.py"
 $orchestratorScript = Join-Path $scriptDir "agent_cli.py"
 $formatterScript = Join-Path $scriptDir "formatter_agent.py"
-$rendererScript = Join-Path $scriptDir "renderer\\render_report.py"
-$serverScript = Join-Path $scriptDir "renderer\\serve_reports.py"
+$rendererScript = Join-Path $scriptDir "renderer\render_report.py"
+$serverScript = Join-Path $scriptDir "renderer\serve_reports.py"
 $reportUrl = "http://127.0.0.1:8123/latest_report.html"
 
 if (-not (Test-Path $pythonScript)) {

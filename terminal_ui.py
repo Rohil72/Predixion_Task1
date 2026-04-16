@@ -1,5 +1,7 @@
 """Small terminal status UI used by the planner/search CLI."""
 
+import sys
+import time
 from typing import List
 
 
@@ -10,9 +12,6 @@ class TerminalUI:
         self._spinner = ["-", "|", "/", "."]
 
     def show_status(self, agent: str, title: str, spin_time: float = 0.4) -> None:
-        import sys
-        import time
-
         line = f"[{agent}] -> {title}   "
         for s in self._spinner:
             sys.stderr.write("\r" + line + s)

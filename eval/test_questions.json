@@ -1,0 +1,58 @@
+[
+  {
+    "id": "factual_basic",
+    "question": "What is the capital of France?",
+    "type": "factual",
+    "expected_keywords": ["Paris"],
+    "difficulty": "easy"
+  },
+  {
+    "id": "comparative_tech",
+    "question": "Compare the advantages and disadvantages of REST vs GraphQL APIs",
+    "type": "comparative",
+    "expected_keywords": ["REST", "GraphQL", "query", "endpoint"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "current_events_ai",
+    "question": "What are the latest developments in large language models in 2025?",
+    "type": "current_events",
+    "expected_keywords": ["language", "model", "GPT", "LLM"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "domain_finance",
+    "question": "Explain the impact of Federal Reserve interest rate decisions on the stock market",
+    "type": "domain_specific",
+    "expected_keywords": ["Federal Reserve", "interest", "rate", "stock", "market"],
+    "difficulty": "hard"
+  },
+  {
+    "id": "analysis_climate",
+    "question": "What are the main challenges facing renewable energy adoption globally?",
+    "type": "analysis",
+    "expected_keywords": ["renewable", "energy", "solar", "wind", "challenge"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "factual_science",
+    "question": "How does CRISPR gene editing work and what are its current applications?",
+    "type": "factual",
+    "expected_keywords": ["CRISPR", "gene", "editing", "DNA"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "comparative_companies",
+    "question": "Compare Tesla and BYD electric vehicle strategies in 2025",
+    "type": "comparative",
+    "expected_keywords": ["Tesla", "BYD", "electric", "vehicle"],
+    "difficulty": "hard"
+  },
+  {
+    "id": "edge_case_vague",
+    "question": "Tell me about stuff",
+    "type": "edge_case",
+    "expected_keywords": [],
+    "difficulty": "edge"
+  }
+]

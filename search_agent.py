@@ -8,8 +8,14 @@ results when a TAVILY_API_KEY is present.
 import os
 import re
 import json
+import sys
+import time
 from typing import Dict, List, Any
 from urllib import request, error
+
+RETRIABLE_HTTP_CODES = {429, 500, 502, 503, 504}
+MAX_RETRIES = 3
+BASE_DELAY = 2
 
 
 class SearchAgent:
@@ -80,7 +86,7 @@ class SearchAgent:
         if not api_key or api_key == "your_tavily_api_key_here":
             raise RuntimeError("Set TAVILY_API_KEY in env to use web search")
 
-        payload = {
+        payload = json.dumps({
             "query": query,
             "topic": topic,
             "search_depth": "basic",
@@ -88,26 +94,40 @@ class SearchAgent:
             "include_answer": False,
             "include_raw_content": False,
             "include_usage": False,
-        }
+        }).encode("utf-8")
 
-        req = request.Request(
-            "https://api.tavily.com/search",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-
-        try:
-            with request.urlopen(req, timeout=60) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except error.HTTPError as exc:
-            body = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"Tavily HTTP {exc.code}: {body}") from exc
-        except error.URLError as exc:
-            raise RuntimeError(f"Tavily request failed: {exc}") from exc
+        last_exc: Exception | None = None
+        for attempt in range(MAX_RETRIES + 1):
+            req = request.Request(
+                "https://api.tavily.com/search",
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            try:
+                with request.urlopen(req, timeout=60) as response:
+                    return json.loads(response.read().decode("utf-8"))
+            except error.HTTPError as exc:
+                body = exc.read().decode("utf-8", errors="replace")
+                if exc.code in RETRIABLE_HTTP_CODES and attempt < MAX_RETRIES:
+                    delay = BASE_DELAY * (2 ** attempt)
+                    print(f"[retry] Tavily HTTP {exc.code}, retrying in {delay}s...", file=sys.stderr)
+                    time.sleep(delay)
+                    last_exc = exc
+                    continue
+                raise RuntimeError(f"Tavily HTTP {exc.code}: {body}") from exc
+            except error.URLError as exc:
+                if attempt < MAX_RETRIES:
+                    delay = BASE_DELAY * (2 ** attempt)
+                    print(f"[retry] Tavily connection error, retrying in {delay}s...", file=sys.stderr)
+                    time.sleep(delay)
+                    last_exc = exc
+                    continue
+                raise RuntimeError(f"Tavily request failed: {exc}") from exc
+        raise RuntimeError(f"Tavily request failed after {MAX_RETRIES} retries") from last_exc
 
     def search_as_tavily(self, query: str, topic: str = "general", top_k: int = 5) -> Dict[str, Any]:
         """Return a Tavily-like response dict by combining repo hits and (optionally) web results."""

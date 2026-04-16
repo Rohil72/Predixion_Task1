@@ -15,6 +15,7 @@ from terminal_ui import TerminalUI
 from planner_agent import Planner
 from search_agent import SearchAgent
 import research_agent
+from research_agent import load_env_file
 
 
 def summarize_plan_one_line(plan: dict) -> str:
@@ -23,6 +24,16 @@ def summarize_plan_one_line(plan: dict) -> str:
 
 
 def main() -> None:
+    # Load .env so API keys (OPENROUTER_API_KEY, TAVILY_API_KEY) are available
+    load_env_file()
+
+    # Ensure stdout can handle Unicode on Windows consoles
+    try:
+        if getattr(sys.stdout, "encoding", None) != "utf-8":
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
     parser = argparse.ArgumentParser(description="Run orchestrator for a single task")
     parser.add_argument("question_parts", nargs="*", help="Task/question")
     args = parser.parse_args()
