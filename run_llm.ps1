@@ -6,6 +6,7 @@ param(
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $pythonScript = Join-Path $scriptDir "call_llm.py"
 $researchAgentScript = Join-Path $scriptDir "research_agent.py"
+$orchestratorScript = Join-Path $scriptDir "agent_cli.py"
 $formatterScript = Join-Path $scriptDir "formatter_agent.py"
 $rendererScript = Join-Path $scriptDir "renderer\\render_report.py"
 $serverScript = Join-Path $scriptDir "renderer\\serve_reports.py"
@@ -23,6 +24,11 @@ if (-not (Test-Path $formatterScript)) {
 
 if (-not (Test-Path $researchAgentScript)) {
     Write-Error "Could not find research_agent.py in $scriptDir"
+    exit 1
+}
+
+if (-not (Test-Path $orchestratorScript)) {
+    Write-Error "Could not find agent_cli.py in $scriptDir"
     exit 1
 }
 
@@ -75,7 +81,7 @@ if ($Prompt.Count -eq 0) {
 }
 
 $question = $Prompt -join " "
-$rawOutput = & python $researchAgentScript @Prompt
+$rawOutput = & python $orchestratorScript @Prompt
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

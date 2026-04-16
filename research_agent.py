@@ -5,7 +5,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Optional, List
 from urllib import error, request
 
 
@@ -255,18 +255,57 @@ def is_final_output_usable(final_text: str) -> bool:
     return all(heading in final_text for heading in REQUIRED_FINAL_HEADINGS)
 
 
-def run_research(question: str) -> str:
+def run_research(
+    question: str,
+    search_fn: Optional[Callable[[str, str], dict]] = None,
+    seeded_searches: Optional[List[dict]] = None,
+    max_model_turns: Optional[int] = None,
+) -> str:
+    """Run the researcher loop. Optional search_fn should accept (query, topic) and
+    return a Tavily-like dict: {"results": [{"title","url","content"}, ...]}.
+
+    seeded_searches: optional list of dicts: {"query":..., "topic":..., "results": [...]}
+    """
+
     messages: list[dict[str, str]] = [
         {"role": "system", "content": load_system_prompt()},
         {"role": "user", "content": f"Research question: {question}"},
     ]
 
+    # Inject any planner-seeded search results so the model can use them as evidence.
+    if seeded_searches:
+        for idx, seeded in enumerate(seeded_searches, start=1):
+            q = seeded.get("query") or question
+            topic = seeded.get("topic") or detect_default_topic(question)
+            # Normalize seeded results into a Tavily-like response dict
+            tavily_resp = {"results": []}
+            for r in seeded.get("results", [])[:MAX_RESULTS]:
+                title = r.get("title") or r.get("path") or "Untitled"
+                url = r.get("url") or r.get("path") or ""
+                content = r.get("content") or r.get("snippet") or ""
+                tavily_resp["results"].append({"title": title, "url": url, "content": content})
+            messages.append({"role": "user", "content": format_search_results(idx, q, topic, tavily_resp)})
+
     search_count = 0
     invalid_action_count = 0
     final_correction_count = 0
     seen_queries: set[str] = set()
+    turns = max_model_turns or MAX_MODEL_TURNS
 
-    for _ in range(MAX_MODEL_TURNS):
+    def perform_search(q: str, topic: str) -> dict[str, Any]:
+        # Prefer injected search function (from planner or orchestrator); fall back to Tavily.
+        if search_fn:
+            try:
+                return search_fn(q, topic)
+            except Exception:
+                # Fall back to Tavily if injected search fails
+                try:
+                    return call_tavily_search(q, topic)
+                except Exception:
+                    return {"results": []}
+        return call_tavily_search(q, topic)
+
+    for _ in range(turns):
         response_text = call_openrouter(messages)
         messages.append({"role": "assistant", "content": response_text})
 
@@ -319,7 +358,7 @@ def run_research(question: str) -> str:
 
             seen_queries.add(normalized_query)
             search_count += 1
-            tavily_response = call_tavily_search(search_request["query"], search_request["topic"])
+            tavily_response = perform_search(search_request["query"], search_request["topic"])
             messages.append(
                 {
                     "role": "user",
