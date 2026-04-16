@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from urllib import error, request
 
+from guardrails import validate_input, validate_output
 
 def load_env_file(path: str = ".env") -> None:
     env_path = Path(path)
@@ -20,6 +21,8 @@ def load_env_file(path: str = ".env") -> None:
 
 
 def get_response(api_key: str, model: str, messages: list[dict[str, str]]) -> str:
+    validate_input(messages)
+
     payload = {
         "model": model,
         "messages": messages,
@@ -46,7 +49,9 @@ def get_response(api_key: str, model: str, messages: list[dict[str, str]]) -> st
     except error.URLError as exc:
         raise SystemExit(f"Request failed: {exc}") from exc
 
-    return result["choices"][0]["message"]["content"].strip()
+    result_content = result["choices"][0]["message"]["content"].strip()
+    validate_output(result_content)
+    return result_content
 
 
 def run_single_prompt(api_key: str, model: str, prompt: str) -> int:

@@ -12,6 +12,8 @@ import time
 from typing import Any, Dict, List
 from urllib import error, request
 
+from guardrails import validate_input, validate_output
+
 RETRIABLE_HTTP_CODES = {429, 500, 502, 503, 504}
 MAX_RETRIES = 3
 BASE_DELAY = 2
@@ -69,6 +71,8 @@ def _load_env_file(path: str = ".env") -> None:
 
 def _call_openrouter(messages: list[dict[str, str]]) -> str:
     """Call OpenRouter with retry logic for the planner model."""
+    validate_input(messages)
+
     api_key = os.getenv("OPENROUTER_API_KEY")
     model = os.getenv("OPENROUTER_PLANNER_MODEL") or os.getenv(
         "OPENROUTER_MODEL", "openrouter/free"
@@ -98,7 +102,9 @@ def _call_openrouter(messages: list[dict[str, str]]) -> str:
         try:
             with request.urlopen(req, timeout=60) as response:
                 result = json.loads(response.read().decode("utf-8"))
-            return result["choices"][0]["message"]["content"].strip()
+            result_content = result["choices"][0]["message"]["content"].strip()
+            validate_output(result_content)
+            return result_content
         except error.HTTPError as exc:
             if exc.code in RETRIABLE_HTTP_CODES and attempt < MAX_RETRIES:
                 delay = BASE_DELAY * (2 ** attempt)

@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any, Callable, Optional, List
 from urllib import error, request
 
+from guardrails import validate_input, validate_output
+
 RETRIABLE_HTTP_CODES = {429, 500, 502, 503, 504}
 MAX_RETRIES = 3
 BASE_DELAY = 2  # seconds
@@ -131,6 +133,7 @@ def _request_with_retry(req_factory, timeout: int = 90, label: str = "API") -> A
 
 
 def call_openrouter(messages: list[dict[str, str]]) -> str:
+    validate_input(messages)
     api_key = os.getenv("OPENROUTER_API_KEY")
     model = os.getenv("OPENROUTER_RESEARCH_MODEL") or os.getenv(
         "OPENROUTER_MODEL",
@@ -160,7 +163,9 @@ def call_openrouter(messages: list[dict[str, str]]) -> str:
         )
 
     result = _request_with_retry(make_request, timeout=90, label="OpenRouter")
-    return result["choices"][0]["message"]["content"].strip()
+    result_content = result["choices"][0]["message"]["content"].strip()
+    validate_output(result_content)
+    return result_content
 
 
 def call_tavily_search(query: str, topic: str) -> dict[str, Any]:
