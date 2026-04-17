@@ -11,7 +11,7 @@ import json
 import sys
 import time
 from typing import Dict, List, Any
-from urllib import request, error
+from urllib import request, error, parse
 
 RETRIABLE_HTTP_CODES = {429, 500, 502, 503, 504}
 MAX_RETRIES = 3
@@ -73,8 +73,8 @@ class SearchAgent:
                 first_idx = min([lc.find(t) for t in terms if lc.find(t) >= 0]) if any(lc.find(t) >= 0 for t in terms) else -1
                 snippet = ""
                 if first_idx >= 0:
-                    start = max(0, first_idx - 120)
-                    snippet = text[start : start + 300].replace("\n", " ")
+                    start = max(0, first_idx - 240)
+                    snippet = text[start : start + 500].replace("\n", " ")
 
                 hits.append({"path": path, "score": score, "snippet": snippet})
 
@@ -134,15 +134,25 @@ class SearchAgent:
         repo_hits = self.search(query, scope=["code", "docs"], top_k=top_k)
         results = []
         for hit in repo_hits:
-            title = os.path.basename(hit.get("path", "")) or hit.get("path", "")
-            results.append({"title": title, "url": hit.get("path", ""), "content": hit.get("snippet", "")})
+            path = hit.get("path", "")
+            title = os.path.basename(path) or path
+            snippet = hit.get("snippet", "")
+            results.append({"title": title, "url": path, "content": snippet, "domain": "file", "source_type": "file"})
 
         # Try web results if available
         try:
             web_resp = self._call_tavily_search(query, topic, top_k)
             if isinstance(web_resp, dict) and isinstance(web_resp.get("results"), list):
                 for r in web_resp.get("results", [])[:top_k]:
-                    results.append({"title": r.get("title", ""), "url": r.get("url", ""), "content": r.get("content", "")})
+                    url = r.get("url", "") or ""
+                    domain = ""
+                    try:
+                        domain = parse.urlsplit(url).netloc.lower() if url else ""
+                        if domain.startswith("www."):
+                            domain = domain[4:]
+                    except Exception:
+                        domain = ""
+                    results.append({"title": r.get("title", ""), "url": url, "content": r.get("content", ""), "domain": domain, "source_type": "web"})
         except Exception:
             # Ignore web errors and keep local results
             pass
